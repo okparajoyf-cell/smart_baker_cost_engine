@@ -33,7 +33,7 @@ currency_symbol = st.sidebar.selectbox("Preferred Currency", ["₦ (NGN)", "L$ (
 currency = currency_symbol.split()[0]
 hourly_rate = st.sidebar.number_input(f"Your Hourly Labor Rate ({currency})", min_value=0, value=3000, step=500)
 
-# Layout Split: Left for Inputs, Right for Interactive Ingredient Worksheet
+# Layout Split
 main_col, worksheet_col = st.columns([1, 1], gap="large")
 
 with main_col:
@@ -67,38 +67,54 @@ with main_col:
     profit_percentage = st.slider("Desired Profit Margin (%)", min_value=0, max_value=100, value=30, step=5)
 
 with worksheet_col:
-    # NEW SECTION: Recipe Unit Cost Worksheet
-    st.header("🥣 Recipe Unit Cost Worksheet")
-    st.write("Enter your bulk purchase details and recipe measurements below to automatically calculate precise ingredient costs.")
+    # SIMPLIFIED SECTION: Recipe Ingredients
+    st.header("🥣 Simplified Ingredient Costs")
+    st.write("Set your estimated cost for a standard portion (like per 100g or per 1 egg), then input how much the recipe uses.")
     
-    # Initialize basic baking ingredients list
-    base_ingredients = [
-        {"Ingredient": "Flour", "Bulk Cost": 45000.0, "Bulk Qty (g/ml/pcs)": 25000, "Recipe Qty Needed": 500},
-        {"Ingredient": "Margarine/Butter", "Bulk Cost": 3500.0, "Bulk Qty (g/ml/pcs)": 500, "Recipe Qty Needed": 400},
-        {"Ingredient": "Sugar", "Bulk Cost": 2000.0, "Bulk Qty (g/ml/pcs)": 1000, "Recipe Qty Needed": 400},
-        {"Ingredient": "Eggs", "Bulk Cost": 4200.0, "Bulk Qty (g/ml/pcs)": 30, "Recipe Qty Needed": 6},
-        {"Ingredient": "Flavoring", "Bulk Cost": 1500.0, "Bulk Qty (g/ml/pcs)": 100, "Recipe Qty Needed": 15},
-        {"Ingredient": "Milk", "Bulk Cost": 2500.0, "Bulk Qty (g/ml/pcs)": 1000, "Recipe Qty Needed": 250},
+    # Simple setup
+    simple_ingredients = [
+        {"Ingredient": "Flour", "Cost per 100g": 180.0, "Grams Used in Recipe": 500},
+        {"Ingredient": "Margarine/Butter", "Cost per 100g": 700.0, "Grams Used in Recipe": 400},
+        {"Ingredient": "Sugar", "Cost per 100g": 200.0, "Grams Used in Recipe": 400},
+        {"Ingredient": "Eggs", "Cost per 1 Egg": 140.0, "Number of Eggs Used": 6},
+        {"Ingredient": "Flavoring", "Cost per 10ml": 150.0, "Amount Used (ml)": 15},
+        {"Ingredient": "Milk", "Cost per 100ml": 250.0, "Amount Used (ml)": 250},
     ]
-    df_ingredients = pd.DataFrame(base_ingredients)
+    df_ingredients = pd.DataFrame(simple_ingredients)
     
-    # Render an editable data table right inside the app interface
+    # Render an editable table
     edited_df = st.data_editor(
         df_ingredients,
         column_config={
             "Ingredient": st.column_config.TextColumn("Ingredient", disabled=True),
-            "Bulk Cost": st.column_config.NumberColumn(f"Bulk Price ({currency})", format="%d"),
-            "Bulk Qty (g/ml/pcs)": st.column_config.NumberColumn("Bulk Pack Size"),
-            "Recipe Qty Needed": st.column_config.NumberColumn("Recipe Qty Used"),
+            "Cost per 100g": st.column_config.NumberColumn(f"Cost per Unit ({currency})"),
+            "Grams Used in Recipe": st.column_config.NumberColumn("Amount Used"),
+            "Cost per 1 Egg": st.column_config.NumberColumn(f"Cost per Unit ({currency})"),
+            "Number of Eggs Used": st.column_config.NumberColumn("Amount Used"),
+            "Cost per 10ml": st.column_config.NumberColumn(f"Cost per Unit ({currency})"),
+            "Amount Used (ml)": st.column_config.NumberColumn("Amount Used"),
+            "Cost per 100ml": st.column_config.NumberColumn(f"Cost per Unit ({currency})"),
         },
         hide_index=True,
         use_container_width=True
     )
     
-    # Calculate unit cost per ingredient dynamically
-    edited_df["Calculated Unit Cost"] = (edited_df["Bulk Cost"] / edited_df["Bulk Qty (g/ml/pcs)"]) * edited_df["Recipe Qty Needed"]
-    ingredient_cost = edited_df["Calculated Unit Cost"].sum()
+    # Clean programmatic math based on row index
+    unit_costs = []
+    # Flour (per 100g)
+    unit_costs.append((edited_df.iloc[0, 1] / 100) * edited_df.iloc[0, 2])
+    # Butter (per 100g)
+    unit_costs.append((edited_df.iloc[1, 1] / 100) * edited_df.iloc[1, 2])
+    # Sugar (per 100g)
+    unit_costs.append((edited_df.iloc[2, 1] / 100) * edited_df.iloc[2, 2])
+    # Eggs (per single egg)
+    unit_costs.append(edited_df.iloc[3, 1] * edited_df.iloc[3, 2])
+    # Flavoring (per 10ml)
+    unit_costs.append((edited_df.iloc[4, 1] / 10) * edited_df.iloc[4, 2])
+    # Milk (per 100ml)
+    unit_costs.append((edited_df.iloc[5, 1] / 100) * edited_df.iloc[5, 2])
     
+    ingredient_cost = sum(unit_costs)
     st.info(f"💡 **Total Calculated Ingredient Cost:** {currency}{ingredient_cost:,.2f}")
 
 # Calculations Engine
@@ -130,7 +146,7 @@ if customer_name:
 res_col1, res_col2 = st.columns(2)
 with res_col1:
     st.metric(label="Predicted Labor Time", value=f"{predicted_hours:.1f} Hours")
-    st.metric(label="Total Production Cost", value=f"{currency}{total_base_cost:,.2f}", help="Labor + Ingredients + Packaging")
+    st.metric(label="Total Production Cost", value=f"{currency}{total_base_cost:,.2f}")
 with res_col2:
     st.metric(label="Target Profit Value", value=f"{currency}{profit_earned:,.2f}", delta=f"{profit_percentage}% Margin")
     st.metric(label="Final Retail Selling Price", value=f"{currency}{selling_price:,.2f}")
